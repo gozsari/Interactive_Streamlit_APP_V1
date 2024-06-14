@@ -127,6 +127,9 @@ if df_prank is not None and df_gass is not None:
             else:
                 chains = [chain]
 
+            if len(residue_numbers) != len(chains):
+                st.error('Number of residue numbers and chains should be the same')
+                st.stop()
             color = st.selectbox('Select the color to highlight', ['red', 'blue', 'green'])
             radius = st.slider('Select the radius of the highlighted residue', 0.1, 5.0, 1.0)
             view = generate_pdb_view(pdb_data, residue_numbers, chains, color, radius)

@@ -24,7 +24,7 @@ def generate_pdb_view(pdb_data, residue_numbers=None, chains=None, color='red', 
     view.setStyle({'cartoon': {'color': 'spectrum'}})
     if residue_numbers and chains:
         for residue_number, chain in zip(residue_numbers, chains):
-            view.addStyle({'resi': residue_number, 'chain': chain}, {'sphere': {'color': color, 'radius': radius}})
+            view.addStyle({'resi': residue_number.strip(), 'chain': chain.strip()}, {'sphere': {'color': color, 'radius': radius}})
     view.zoomTo()
     return view
 
