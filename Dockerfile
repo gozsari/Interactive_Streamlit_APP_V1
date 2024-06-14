@@ -1,5 +1,6 @@
-# Use an official Python runtime as the base image
+# Use an official Python 
 FROM python:3.12
+
 # Set the working directory in the container
 WORKDIR /app
 
