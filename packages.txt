@@ -1,0 +1,3 @@
+default-jre-headless
+openjdk-22-jdk
+openjdk-22-jre

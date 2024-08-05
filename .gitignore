@@ -1,4 +1,5 @@
 data
+p2rank
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
