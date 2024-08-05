@@ -3,11 +3,85 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import streamlit.components.v1 as components
+import subprocess
 
 from app_utils.produce_common_df import produce_common_df
 from app_utils.visualization_utils import heatmap_df, generate_pdb_view
 
-st.title('Data Interactive Analysis App')
+
+# Custom CSS for styling
+st.markdown("""
+    <style>
+    .title {
+        font-size: 3em;
+        color: #4CAF50;
+        text-align: center;
+        margin-top: 20px;
+    }
+    .intro-text {
+        font-size: 1.2em;
+        line-height: 1.6;
+        margin: 20px;
+    }
+    .how-to-use {
+        font-size: 1.5em;
+        margin-top: 30px;
+        margin-bottom: 10px;
+        color: #4CAF50;
+    }
+    .step {
+        font-size: 1.2em;
+        margin: 10px 0;
+    }
+    .enjoy {
+        font-size: 1.3em;
+        color: #4CAF50;
+        margin-top: 20px;
+        text-align: center;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+st.markdown('<h1 class="title">Identify and Analyze Catalytic Sites in Proteins</h1>', unsafe_allow_html=True)
+
+# Introduction and instructions
+st.markdown("""
+    <div class="intro-text">
+    Welcome to this interactive data analysis app designed to help you identify and analyze catalytic sites in proteins. 
+    This tool allows you to:
+    <ul>
+        <li>Upload your own CSV files to analyze residue-level predictions and visualize them.</li>
+        <li>Upload a PDB file to visualize 3D structures and run PRANK predictions.</li>
+        <li>Explore and filter the data using various plots and visualizations.</li>
+    </ul>
+    </div>
+    
+    <div class="how-to-use"> How to Use the App:</div>
+    <div class="step">1. <strong>Upload Files:</strong></div>
+    <div class="intro-text">
+        <ul>
+            <li>Choose to upload either a PDB file or CSV files using the options in the sidebar.</li>
+            <li>Follow the prompts to upload your files.</li>
+        </ul>
+    </div>
+    
+    <div class="step">2. <strong>Analyze Data:</strong></div>
+    <div class="intro-text">
+        <ul>
+            <li>If you upload a PDB file, the app will run PRANK predictions and allow you to visualize the results.</li>
+            <li>If you upload CSV files, you can filter the data and create various plots to explore the results.</li>
+        </ul>
+    </div>
+    
+    <div class="step">3. <strong>Visualize Results:</strong></div>
+    <div class="intro-text">
+        <ul>
+            <li>Use the tabs to navigate through different analysis options, including viewing data statistics, creating heatmaps, and visualizing results on 3D structures.</li>
+        </ul>
+    </div>
+    
+    <div class="enjoy">Enjoy exploring and analyzing your protein data!</div>
+""", unsafe_allow_html=True)
 
 # Function to load the uploaded files
 def load_data(uploaded_file, sep=','):
@@ -31,19 +105,13 @@ def render_pdb_view(view):
     view_html = view._make_html()
     components.html(view_html, height=600, width=800)
 
-# Upload files
-st.sidebar.header('Upload your CSV files')
-file1 = st.sidebar.file_uploader('Upload PRANK residue level predictions', type='csv')
-file2 = st.sidebar.file_uploader('Upload GASS-WEB predictions', type='csv')
+def run_prank(path2pdb):
+    command = f'p2rank/distro/prank predict -f {path2pdb} -o data/prank_outputs'
+    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    stdout, stderr = process.communicate()
+    return stdout, stderr
 
-# Load the uploaded files
-df_prank = load_data(file1)
-df_gass = load_data(file2, sep='\t')
-
-if df_prank is not None and df_gass is not None:
-    df_common = produce_common_df(df_prank, df_gass)
-
-
+def tabs(df_common):
     tab1, tab2, tab3,tab4 = st.tabs(['Main' ,'Statistics of Data', 'Heatmap Analysis', 'Visualize Results on PDB'])
     with tab1:
         st.header('First 10 rows of the common DataFrame')
@@ -111,7 +179,7 @@ if df_prank is not None and df_gass is not None:
         st.write('Upload the PDB file to visualize the results')
         file_pdb = st.file_uploader('Upload PDB file', type=['pdb'])
         if file_pdb is not None:
-       
+        
             pdb_data = file_pdb.getvalue().decode("utf-8")
 
             residue_number = st.text_input('Enter the residue number(s) to highlight')
@@ -134,3 +202,60 @@ if df_prank is not None and df_gass is not None:
             radius = st.slider('Select the radius of the highlighted residue', 0.1, 5.0, 1.0)
             view = generate_pdb_view(pdb_data, residue_numbers, chains, color, radius)
             render_pdb_view(view)
+
+
+# Radio button for user choice
+st.sidebar.header('Choose an option')
+option = st.sidebar.radio(
+    'Select what you want to upload:',
+    ('Upload PDB file', 'Upload CSV files')
+)
+
+
+
+# If user selects to upload PDB file
+if option == 'Upload PDB file':
+    st.sidebar.header('Upload your PDB file')
+    file_pdb = st.sidebar.file_uploader('Upload PDB file', type=['pdb'], key='pdb_uploader')
+    pdb_file_name = file_pdb.name if file_pdb is not None else None
+    #st.write(f"Uploaded file: {pdb_file_name}")
+
+    # Save and process the uploaded PDB file if available
+    if file_pdb is not None:
+        path2pdb = f'data/pdbs/{pdb_file_name}'
+        with open(path2pdb, 'wb') as f:
+            f.write(file_pdb.getvalue())
+
+        # Run PRANK prediction on the uploaded PDB file
+        with st.spinner('Progress...'):
+            stdout, stderr = run_prank(path2pdb)
+        st.success('PRANK prediction completed successfully!')
+
+        # Load the uploaded CSV files
+        file_prank = f'data/prank_outputs/{pdb_file_name}_residues.csv'
+        df_prank = load_data(file_prank)
+
+        file_gass = st.sidebar.file_uploader('Upload GASS-WEB predictions', type='csv', key='gass_uploader1')
+        df_gass = load_data(file_gass, sep='\t')
+        
+        
+        if df_prank is not None and df_gass is not None:
+            
+            df_common = produce_common_df(df_prank, df_gass) 
+            tabs(df_common)
+
+# If user selects to upload CSV files
+elif option == 'Upload CSV files':
+    st.sidebar.header('Upload your CSV files')
+    file1 = st.sidebar.file_uploader('Upload PRANK residue level predictions', type='csv', key='prank_uploader')
+    file2 = st.sidebar.file_uploader('Upload GASS-WEB predictions', type='csv', key='gass_uploader2')
+
+    # Load the uploaded CSV files
+    df_prank = load_data(file1)
+    df_gass = load_data(file2, sep='\t')
+
+    # Process the data if both CSV files are uploaded
+    if df_prank is not None and df_gass is not None:
+        df_common = produce_common_df(df_prank, df_gass)
+        tabs(df_common)
+
